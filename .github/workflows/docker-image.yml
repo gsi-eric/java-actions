@@ -1,0 +1,60 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+
+  build:
+    name: Create Docker image and psuh to repository
+    runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/java-actions
+      BRANCH: ${GITHUB_REF##*/}
+      APP_VERSION: 1.0
+#       DOCKERHUB_IMAGE_TAG: $BRANCH-$APP_VERSION 
+
+    steps:
+    - name: Build the Docker image
+      uses: actions/checkout@v2
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Docker metadata
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        # list of Docker images to use as base name for tags
+        images: |
+          $DOCKERHUB_IMAGE
+        # generate Docker tags based on the following events/attributes
+        tags: |
+          type=schedule
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=sha
+          
+    - name: Build the Django base image
+      uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+      with:
+        context: .
+        push: true
+        file: ./Dockerfile
+        tags: $DOCKERHUB_IMAGE-$BRANCH:$APP_VERSION, $DOCKERHUB_IMAGE-$BRANCH:latest
+        labels: ${{ steps.meta.outputs.labels }}
+    
+    
+    
+    
+    
+    
